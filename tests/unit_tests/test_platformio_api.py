@@ -1,6 +1,7 @@
 """Tests for platformio_api.py path functions."""
 
 import json
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -15,45 +16,45 @@ from esphome.core import CORE, EsphomeError
 
 def test_idedata_firmware_elf_path(setup_core: Path) -> None:
     """Test IDEData.firmware_elf_path returns correct path."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
     raw_data = {"prog_path": "/path/to/firmware.elf"}
     idedata = platformio_api.IDEData(raw_data)
 
-    assert idedata.firmware_elf_path == "/path/to/firmware.elf"
+    assert idedata.firmware_elf_path == Path("/path/to/firmware.elf")
 
 
 def test_idedata_firmware_bin_path(setup_core: Path) -> None:
     """Test IDEData.firmware_bin_path returns Path with .bin extension."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
     prog_path = str(Path("/path/to/firmware.elf"))
     raw_data = {"prog_path": prog_path}
     idedata = platformio_api.IDEData(raw_data)
 
     result = idedata.firmware_bin_path
-    assert isinstance(result, str)
-    expected = str(Path("/path/to/firmware.bin"))
+    assert isinstance(result, Path)
+    expected = Path("/path/to/firmware.bin")
     assert result == expected
-    assert result.endswith(".bin")
+    assert str(result).endswith(".bin")
 
 
 def test_idedata_firmware_bin_path_preserves_directory(setup_core: Path) -> None:
     """Test firmware_bin_path preserves the directory structure."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
     prog_path = str(Path("/complex/path/to/build/firmware.elf"))
     raw_data = {"prog_path": prog_path}
     idedata = platformio_api.IDEData(raw_data)
 
     result = idedata.firmware_bin_path
-    expected = str(Path("/complex/path/to/build/firmware.bin"))
+    expected = Path("/complex/path/to/build/firmware.bin")
     assert result == expected
 
 
 def test_idedata_extra_flash_images(setup_core: Path) -> None:
     """Test IDEData.extra_flash_images returns list of FlashImage objects."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
     raw_data = {
         "prog_path": "/path/to/firmware.elf",
@@ -69,15 +70,15 @@ def test_idedata_extra_flash_images(setup_core: Path) -> None:
     images = idedata.extra_flash_images
     assert len(images) == 2
     assert all(isinstance(img, platformio_api.FlashImage) for img in images)
-    assert images[0].path == "/path/to/bootloader.bin"
+    assert images[0].path == Path("/path/to/bootloader.bin")
     assert images[0].offset == "0x1000"
-    assert images[1].path == "/path/to/partition.bin"
+    assert images[1].path == Path("/path/to/partition.bin")
     assert images[1].offset == "0x8000"
 
 
 def test_idedata_extra_flash_images_empty(setup_core: Path) -> None:
     """Test extra_flash_images returns empty list when no extra images."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
     raw_data = {"prog_path": "/path/to/firmware.elf", "extra": {"flash_images": []}}
     idedata = platformio_api.IDEData(raw_data)
@@ -88,7 +89,7 @@ def test_idedata_extra_flash_images_empty(setup_core: Path) -> None:
 
 def test_idedata_cc_path(setup_core: Path) -> None:
     """Test IDEData.cc_path returns compiler path."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
     raw_data = {
         "prog_path": "/path/to/firmware.elf",
@@ -104,9 +105,9 @@ def test_idedata_cc_path(setup_core: Path) -> None:
 
 def test_flash_image_dataclass() -> None:
     """Test FlashImage dataclass stores path and offset correctly."""
-    image = platformio_api.FlashImage(path="/path/to/image.bin", offset="0x10000")
+    image = platformio_api.FlashImage(path=Path("/path/to/image.bin"), offset="0x10000")
 
-    assert image.path == "/path/to/image.bin"
+    assert image.path == Path("/path/to/image.bin")
     assert image.offset == "0x10000"
 
 
@@ -114,7 +115,7 @@ def test_load_idedata_returns_dict(
     setup_core: Path, mock_run_platformio_cli_run
 ) -> None:
     """Test _load_idedata returns parsed idedata dict when successful."""
-    CORE.build_path = str(setup_core / "build" / "test")
+    CORE.build_path = setup_core / "build" / "test"
     CORE.name = "test"
 
     # Create required files
@@ -366,7 +367,7 @@ def test_get_idedata_caches_result(
 
     assert result1 is result2
     assert isinstance(result1, platformio_api.IDEData)
-    assert result1.firmware_elf_path == "/test/firmware.elf"
+    assert result1.firmware_elf_path == Path("/test/firmware.elf")
 
 
 def test_idedata_addr2line_path_windows(setup_core: Path) -> None:
@@ -385,6 +386,42 @@ def test_idedata_addr2line_path_unix(setup_core: Path) -> None:
 
     result = idedata.addr2line_path
     assert result == "/usr/bin/addr2line"
+
+
+def test_idedata_objdump_path_windows(setup_core: Path) -> None:
+    """Test IDEData.objdump_path on Windows."""
+    raw_data = {"prog_path": "/path/to/firmware.elf", "cc_path": "C:\\tools\\gcc.exe"}
+    idedata = platformio_api.IDEData(raw_data)
+
+    result = idedata.objdump_path
+    assert result == "C:\\tools\\objdump.exe"
+
+
+def test_idedata_objdump_path_unix(setup_core: Path) -> None:
+    """Test IDEData.objdump_path on Unix."""
+    raw_data = {"prog_path": "/path/to/firmware.elf", "cc_path": "/usr/bin/gcc"}
+    idedata = platformio_api.IDEData(raw_data)
+
+    result = idedata.objdump_path
+    assert result == "/usr/bin/objdump"
+
+
+def test_idedata_readelf_path_windows(setup_core: Path) -> None:
+    """Test IDEData.readelf_path on Windows."""
+    raw_data = {"prog_path": "/path/to/firmware.elf", "cc_path": "C:\\tools\\gcc.exe"}
+    idedata = platformio_api.IDEData(raw_data)
+
+    result = idedata.readelf_path
+    assert result == "C:\\tools\\readelf.exe"
+
+
+def test_idedata_readelf_path_unix(setup_core: Path) -> None:
+    """Test IDEData.readelf_path on Unix."""
+    raw_data = {"prog_path": "/path/to/firmware.elf", "cc_path": "/usr/bin/gcc"}
+    idedata = platformio_api.IDEData(raw_data)
+
+    result = idedata.readelf_path
+    assert result == "/usr/bin/readelf"
 
 
 def test_patch_structhash(setup_core: Path) -> None:
@@ -434,9 +471,9 @@ def test_patched_clean_build_dir_removes_outdated(setup_core: Path) -> None:
     os.utime(platformio_ini, (build_mtime + 1, build_mtime + 1))
 
     # Track if directory was removed
-    removed_paths: list[str] = []
+    removed_paths: list[Path] = []
 
-    def track_rmtree(path: str) -> None:
+    def track_rmtree(path: Path) -> None:
         removed_paths.append(path)
         shutil.rmtree(path)
 
@@ -466,7 +503,7 @@ def test_patched_clean_build_dir_removes_outdated(setup_core: Path) -> None:
 
         # Verify directory was removed and recreated
         assert len(removed_paths) == 1
-        assert removed_paths[0] == str(build_dir)
+        assert removed_paths[0] == build_dir
         assert build_dir.exists()  # makedirs recreated it
 
 
@@ -634,3 +671,100 @@ def test_process_stacktrace_bad_alloc(
     assert "Memory allocation of 512 bytes failed at 40201234" in caplog.text
     mock_decode_pc.assert_called_once_with(config, "40201234")
     assert state is False
+
+
+def test_platformio_log_filter_allows_non_platformio_messages() -> None:
+    """Test that non-platformio logger messages are allowed through."""
+    log_filter = platformio_api.PlatformioLogFilter()
+    record = logging.LogRecord(
+        name="esphome.core",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="Some esphome message",
+        args=(),
+        exc_info=None,
+    )
+    assert log_filter.filter(record) is True
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "Verbose mode can be enabled via `-v, --verbose` option",
+        "Found 5 compatible libraries",
+        "Found 123 compatible libraries",
+        "Building in release mode",
+        "Building in debug mode",
+        "Merged 2 ELF section",
+        "esptool.py v4.7.0",
+        "esptool v4.8.1",
+        "PLATFORM: espressif32 @ 6.4.0",
+        "Using cache: /path/to/cache",
+        "Package configuration completed successfully",
+        "Scanning dependencies...",
+        "Installing dependencies",
+        "Library Manager: Already installed, built-in library",
+        "Memory Usage -> https://bit.ly/pio-memory-usage",
+    ],
+)
+def test_platformio_log_filter_blocks_noisy_messages(msg: str) -> None:
+    """Test that noisy platformio messages are filtered out."""
+    log_filter = platformio_api.PlatformioLogFilter()
+    record = logging.LogRecord(
+        name="platformio.builder",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg=msg,
+        args=(),
+        exc_info=None,
+    )
+    assert log_filter.filter(record) is False
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "Compiling .pio/build/test/src/main.cpp.o",
+        "Linking .pio/build/test/firmware.elf",
+        "Error: something went wrong",
+        "warning: unused variable",
+    ],
+)
+def test_platformio_log_filter_allows_other_platformio_messages(msg: str) -> None:
+    """Test that non-noisy platformio messages are allowed through."""
+    log_filter = platformio_api.PlatformioLogFilter()
+    record = logging.LogRecord(
+        name="platformio.builder",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg=msg,
+        args=(),
+        exc_info=None,
+    )
+    assert log_filter.filter(record) is True
+
+
+@pytest.mark.parametrize(
+    "logger_name",
+    [
+        "PLATFORMIO.builder",
+        "PlatformIO.core",
+        "platformio.run",
+    ],
+)
+def test_platformio_log_filter_case_insensitive_logger_name(logger_name: str) -> None:
+    """Test that platformio logger name matching is case insensitive."""
+    log_filter = platformio_api.PlatformioLogFilter()
+    record = logging.LogRecord(
+        name=logger_name,
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="Found 5 compatible libraries",
+        args=(),
+        exc_info=None,
+    )
+    assert log_filter.filter(record) is False

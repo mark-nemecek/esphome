@@ -270,20 +270,18 @@ def climate_schema(
     return _CLIMATE_SCHEMA.extend(schema)
 
 
-# Remove before 2025.11.0
-CLIMATE_SCHEMA = climate_schema(Climate)
-CLIMATE_SCHEMA.add_extra(cv.deprecated_schema_constant("climate"))
-
-
 async def setup_climate_core_(var, config):
     await setup_entity(var, config, "climate")
 
     visual = config[CONF_VISUAL]
     if (min_temp := visual.get(CONF_MIN_TEMPERATURE)) is not None:
+        cg.add_define("USE_CLIMATE_VISUAL_OVERRIDES")
         cg.add(var.set_visual_min_temperature_override(min_temp))
     if (max_temp := visual.get(CONF_MAX_TEMPERATURE)) is not None:
+        cg.add_define("USE_CLIMATE_VISUAL_OVERRIDES")
         cg.add(var.set_visual_max_temperature_override(max_temp))
     if (temp_step := visual.get(CONF_TEMPERATURE_STEP)) is not None:
+        cg.add_define("USE_CLIMATE_VISUAL_OVERRIDES")
         cg.add(
             var.set_visual_temperature_step_override(
                 temp_step[CONF_TARGET_TEMPERATURE],
@@ -291,8 +289,10 @@ async def setup_climate_core_(var, config):
             )
         )
     if (min_humidity := visual.get(CONF_MIN_HUMIDITY)) is not None:
+        cg.add_define("USE_CLIMATE_VISUAL_OVERRIDES")
         cg.add(var.set_visual_min_humidity_override(min_humidity))
     if (max_humidity := visual.get(CONF_MAX_HUMIDITY)) is not None:
+        cg.add_define("USE_CLIMATE_VISUAL_OVERRIDES")
         cg.add(var.set_visual_max_humidity_override(max_humidity))
 
     if (mqtt_id := config.get(CONF_MQTT_ID)) is not None:

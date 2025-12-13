@@ -10,9 +10,9 @@ static const char *const TAG = "switchbot_wosensorth";
 
 void SwitchbotWoSensorTH::dump_config() {
   ESP_LOGCONFIG(TAG,
-                "Switchbot WoSensorTH\n"
-                "  MAC: %02X",
-                this->address_);
+                "Switchbot Meter\n"
+                "  MAC: %s",
+                format_hex_pretty(this->address_, ':').c_str());
   LOG_SENSOR("  ", "Temperature", this->temperature_);
   LOG_SENSOR("  ", "Humidity", this->humidity_);
   LOG_SENSOR("  ", "Battery Level", this->battery_level_);

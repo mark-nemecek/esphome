@@ -12,7 +12,7 @@ void SwitchbotWoSensorTH::dump_config() {
   ESP_LOGCONFIG(TAG,
                 "Switchbot Meter\n"
                 "  MAC: %s",
-                format_hex_pretty(this->address_, ':').c_str());
+                format_hex_pretty(this->address_, 12, ':').c_str());
   LOG_SENSOR("  ", "Temperature", this->temperature_);
   LOG_SENSOR("  ", "Humidity", this->humidity_);
   LOG_SENSOR("  ", "Battery Level", this->battery_level_);
@@ -30,6 +30,7 @@ bool SwitchbotWoSensorTH::parse_device(const esp32_ble_tracker::ESPBTDevice &dev
 
   bool success = false;
   for (auto data : device.get_service_datas()) {
+    ESP_LOGVV(TAG, "service data size: %d", data.data.size());
     float temperature = (float(data.data[3] & 0x0F) * 0.1) + float(data.data[4] & 0x7F);
     if (!(data.data[4] & 0x80)) {
       temperature = -temperature;
@@ -40,6 +41,7 @@ bool SwitchbotWoSensorTH::parse_device(const esp32_ble_tracker::ESPBTDevice &dev
   }
 
   for (auto data : device.get_manufacturer_datas()) {
+    ESP_LOGVV(TAG, "manufacturer data size: %d", data.data.size());
     // float temperature = (float(data.data[10] & 0x0F) * 0.1) + float(data.data[11] & 0x7F);
     // if (!(data.data[11] & 0x80)) {
     //   temperature = -temperature;
